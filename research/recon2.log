@@ -1,0 +1,122 @@
+Warning: Permanently added '192.168.1.103' (ED25519) to the list of known hosts.
+=== DTB ===
+DTB saved
+=== lspci ===
+00:01.0 Class 0200: 1c36:0001
+00:03.0 Class 0200: 1c36:0001
+00:04.0 Class 1000: 1c36:0011
+00:04.1 Class 1000: 1c36:8011
+00:05.0 Class 0880: 1c36:0021
+00:05.1 Class 0880: 1c36:8021
+00:09.0 Class 0106: 1c36:0031
+00:00.0 Class 0604: 1c36:0031
+01:00.0 Class 0c03: 1b6f:7052
+=== lsblk ===
+major minor  #blocks  name
+
+   1        0     204800 ram0
+   1        1     204800 ram1
+   1        2     204800 ram2
+   1        3     204800 ram3
+   7        0      32768 loop0
+   8        0 2930266584 sda
+   8        1     530125 sda1
+   8        2     530142 sda2
+   8        3 2920311808 sda3
+   8        4     539636 sda4
+   8        5    7831684 sda5
+  31        0       1088 mtdblock0
+  31        1        384 mtdblock1
+  31        2      32768 mtdblock2
+  31        3     221184 mtdblock3
+  31        4      32768 mtdblock4
+  31        5     221184 mtdblock5
+  31        6      15360 mtdblock6
+   9        9     530048 md9
+   9       13     458880 md13
+   9      256     530112 md256
+   9      322    6702656 md322
+=== ifconfig ===
+eth0      Link encap:Ethernet  HWaddr 24:5E:BE:09:58:57  
+          inet addr:192.168.1.103  Bcast:192.168.1.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:4665 errors:1 dropped:0 overruns:0 frame:2
+          TX packets:8098 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:1584342 (1.5 MiB)  TX bytes:8617729 (8.2 MiB)
+
+=== dmesg SATA ===
+[    5.746380] ahci 0000:00:09.0: version 3.0
+[    5.746391] ahci 0000:00:09.0: enabling device (0000 -> 0002)
+[    5.752142] ahci 0000:00:09.0: controller can't do PMP, turning off CAP_PMP
+[    5.760312] ahci 0000:00:09.0: AHCI 0001.0300 32 slots 4 ports 6 Gbps 0xf impl SATA mode
+[    5.768403] ahci 0000:00:09.0: flags: 64bit ncq sntf pm led clo only fbs pio slum part ccc apst 
+[    6.014042] scsi host0: ahci
+[    6.017097] scsi host1: ahci
+[    6.020153] scsi host2: ahci
+[    6.023217] scsi host3: ahci
+[    6.026200] ata1: SATA max UDMA/133 abar m16384@0xfe0c8000 port 0xfe0c8100 irq 0
+[    6.033599] ata2: SATA max UDMA/133 abar m16384@0xfe0c8000 port 0xfe0c8180 irq 1
+[    6.040982] ata3: SATA max UDMA/133 abar m16384@0xfe0c8000 port 0xfe0c8200 irq 2
+[    6.048372] ata4: SATA max UDMA/133 abar m16384@0xfe0c8000 port 0xfe0c8280 irq 3
+[    6.055779] ahci 0001:00:00.0: writing to VF config space
+[    6.061195] ahci: probe of 0001:00:00.0 failed with error -22
+[    6.423150] ata2: SATA link down (SStatus 0 SControl 300)
+[    6.428566] ata4: SATA link down (SStatus 0 SControl 300)
+[    6.433983] ata3: SATA link down (SStatus 0 SControl 300)
+[    6.439393] ata1: SATA link up 6.0 Gbps (SStatus 133 SControl 300)
+[    6.446448] ata1.00: ATA-9: ST3000VX000-1ES166, CV26, max UDMA/133
+=== dmesg eth ===
+[    6.067722] al_eth 0000:00:01.0: writing to VF config space
+[    6.073308] al_eth 0000:00:01.0: AnnapurnaLabs unified 1GbE and 10GbE Ethernet Driver al_eth v0.2 (Mar 29, 2016)
+[    6.083474] al_eth 0000:00:01.0: driver_data is 0x0
+[    6.088386] al_eth 0000:00:01.0: Board info: phy exist Yes. phy addr 4. mdio freq 1000 Khz. SFP connected No. media 1
+[    6.099093] al_eth_hw_stop: reset count 0, result = 0
+[    6.110739] al_eth 0000:00:01.0 eth0: AnnapurnaLabs unified 1Gbe/10Gbe found at mem fe000000, mac addr 06:ce:dc:4a:60:94
+[    6.121645] al_eth 0000:00:03.0: writing to VF config space
+[    6.127232] al_eth 0000:00:03.0: driver_data is 0x0
+[    6.132140] al_eth 0000:00:03.0: Board info: phy exist Yes. phy addr 5. mdio freq 1000 Khz. SFP connected No. media 1
+[    6.142845] al_eth_hw_stop: reset count 0, result = 0
+[    6.154468] al_eth 0000:00:03.0 eth1: AnnapurnaLabs unified 1Gbe/10Gbe found at mem fe020000, mac addr 06:18:3c:da:fb:a1
+[   71.860854] interfaces: eth0 flags = 1002, old flags = 1002
+[   71.872637] interfaces: eth0 flags = 1043, old flags = 1002
+[   71.890072] al_eth 0000:00:01.0 eth0: using MSI-X per Queue interrupt mode
+[   71.985748] al_eth 0000:00:01.0 eth0: phy[4]: device 8:04, driver Atheros 8035 ethernet
+[   71.993771] al_eth 0000:00:01.0 eth0: phy[4]:supported 2ef adv 2ef
+[   71.993860] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   72.872199] interfaces: eth1 flags = 1002, old flags = 1002
+[   72.882550] interfaces: eth1 flags = 1043, old flags = 1002
+[   72.898560] al_eth 0000:00:03.0 eth1: using MSI-X per Queue interrupt mode
+=== modules ===
+iscsi_tcp 8160 0 - Live 0x7f24b000 (O)
+libiscsi_tcp 11752 1 iscsi_tcp, Live 0x7f244000 (O)
+libiscsi 33158 2 iscsi_tcp,libiscsi_tcp, Live 0x7f236000 (O)
+scsi_transport_iscsi 54742 3 iscsi_tcp,libiscsi, Live 0x7f220000 (O)
+fbdisk 20810 0 - Live 0x7f216000 (O)
+dummy 2322 0 - Live 0x7f20e000
+br_netfilter 11482 0 - Live 0x7f208000
+bridge 75062 1 br_netfilter, Live 0x7f1ee000
+stp 1401 1 bridge, Live 0x7f1ea000
+bonding 102154 0 - Live 0x7f1c9000
+xt_connmark 1460 2 - Live 0x7f1c5000
+xt_TCPMSS 2984 0 - Live 0x7f1c1000
+xt_LOG 1475 0 - Live 0x7f1bd000
+xt_set 7139 5 - Live 0x7f1b8000
+ip_set_hash_netiface 26953 1 - Live 0x7f1ae000
+ip_set_hash_net 25346 4 - Live 0x7f1a4000
+ip_set 25222 3 xt_set,ip_set_hash_netiface,ip_set_hash_net, Live 0x7f199000
+ipt_MASQUERADE 1266 1 - Live 0x7f195000
+xt_REDIRECT 1397 0 - Live 0x7f191000
+nf_nat_redirect 1371 1 xt_REDIRECT, Live 0x7f18d000
+iptable_nat 1526 1 - Live 0x7f189000
+nf_nat_masquerade_ipv4 1741 1 ipt_MASQUERADE, Live 0x7f185000
+nf_nat_ipv4 4510 1 iptable_nat, Live 0x7f180000
+nf_nat 10688 3 nf_nat_redirect,nf_nat_masquerade_ipv4,nf_nat_ipv4, Live 0x7f179000
+xt_policy 2346 0 - Live 0x7f175000
+xt_mark 992 6 - Live 0x7f171000
+qelf 19360 0 [permanent], Live 0x7f168000 (PO)
+8021q 15423 0 - Live 0x7f160000
+ipv6 285187 38 bridge,[permanent], Live 0x7f10c000
+uvcvideo 63378 0 - Live 0x7f0f7000
+=== kernel version ===
+Linux version 4.2.8 (root@mini-builder-05) (gcc version 4.8.2 20131014 (prerelease) (crosstool-NG linaro-1.13.1-4.8-2013.10 - Linaro GCC 2013.10) ) #2 SMP Wed Jan 8 03:50:14 CST 2025

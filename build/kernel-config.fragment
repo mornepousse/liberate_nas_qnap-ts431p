@@ -1,0 +1,49 @@
+# Kernel config fragment for QNAP TS-431P
+# Apply on top of multi_v7_defconfig:
+#   make multi_v7_defconfig
+#   scripts/kconfig/merge_config.sh .config THIS_FILE
+
+# SoC
+CONFIG_ARCH_ALPINE=y
+CONFIG_SMP=y
+CONFIG_KERNEL_MODE_NEON=y
+
+# Storage
+CONFIG_SATA_AHCI=y
+CONFIG_EXT4_FS=y
+
+# RAID 5 (md as built-in, raid456 + deps as modules)
+CONFIG_MD=y
+CONFIG_BLK_DEV_MD=y
+CONFIG_MD_RAID0=m
+CONFIG_MD_RAID1=m
+CONFIG_MD_RAID10=m
+CONFIG_MD_RAID456=m
+CONFIG_RAID6_PQ=m
+CONFIG_XOR_BLOCKS=m
+CONFIG_ASYNC_CORE=m
+CONFIG_ASYNC_MEMCPY=m
+CONFIG_ASYNC_XOR=m
+CONFIG_ASYNC_PQ=m
+CONFIG_ASYNC_RAID6_RECOV=m
+CONFIG_LIBCRC32C=m
+CONFIG_CRYPTO_CRC32C=y
+
+# Network
+CONFIG_PHYLIB=y
+CONFIG_FIXED_PHY=y
+# CONFIG_AT803X is handled by phylib autodetect (AR8035)
+
+# Filesystem / NAS features
+CONFIG_QUOTA=y
+CONFIG_NFSD=m
+CONFIG_CIFS=m
+CONFIG_OVERLAY_FS=m
+CONFIG_VLAN_8021Q=y
+
+# Network extras
+CONFIG_BRIDGE=y
+CONFIG_BONDING=m
+
+# Monitoring
+CONFIG_SENSORS_DRIVETEMP=m

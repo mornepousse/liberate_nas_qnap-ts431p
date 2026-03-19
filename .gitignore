@@ -1,0 +1,21 @@
+# NAND backup binaries (large, device-specific)
+uboot/nand_backup/*.bin
+
+# Compiled binaries
+*.ko
+*.o
+*.dtb
+uImage
+uInitrd
+
+# Editor
+*.swp
+*~
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Agent description (internal)
+agent-description.md
