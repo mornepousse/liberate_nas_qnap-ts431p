@@ -17,6 +17,16 @@
 	model = "QNAP TS-431P";
 	compatible = "qnap,ts-431p", "al,alpine";
 
+	/* AL-212 is dual-core, disable cpu@2 and cpu@3 from alpine.dtsi */
+	cpus {
+		cpu@2 {
+			status = "disabled";
+		};
+		cpu@3 {
+			status = "disabled";
+		};
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x40000000>; /* 1 GB */

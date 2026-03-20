@@ -41,7 +41,7 @@ fi
 
 # Assemble RAID array
 $BB echo "Assembling RAID array..."
-/bin/mdadm --assemble /dev/md0 /dev/sdb1 /dev/sdc1 /dev/sdd1
+/bin/mdadm --assemble --run /dev/md0 /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1
 $BB sleep 2
 
 if [ ! -b /dev/md0 ]; then
