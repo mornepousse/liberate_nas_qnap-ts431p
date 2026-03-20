@@ -49,14 +49,10 @@ if [ $? -ne 0 ]; then
     exec $BB sh
 fi
 
-# Copy al_eth module to rootfs for later use
-$BB mkdir -p /mnt/lib/modules/6.12.77
-$BB cp /lib/modules/*.ko /mnt/lib/modules/6.12.77/
-
-# Disable hardware watchdog - systemd hangs during boot
-$BB mkdir -p /mnt/etc/systemd/system.conf.d
-$BB echo "[Manager]" > /mnt/etc/systemd/system.conf.d/watchdog.conf
-$BB echo "RuntimeWatchdogSec=0" >> /mnt/etc/systemd/system.conf.d/watchdog.conf
+# Copy modules to rootfs (use full kernel version for depmod)
+KVER=$($BB uname -r)
+$BB mkdir -p /mnt/lib/modules/$KVER
+$BB cp /lib/modules/*.ko /mnt/lib/modules/$KVER/
 
 $BB echo "Switching to Debian on RAID5..."
 exec $BB switch_root /mnt /sbin/init
