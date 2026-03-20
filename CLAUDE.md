@@ -15,8 +15,8 @@
 | Flash | 2 MB SPI NOR + 512 MB NAND |
 | SATA | 4x SATA III via PCIe AHCI |
 | Network | 2x GbE (AR8035 PHY), out-of-tree al_eth driver |
-| NAS IP | 192.168.1.109 (DHCP on enp0s1) |
-| TFTP host | 192.168.1.113, files in /tmp/tftp/ |
+| Network config | Static IP on enp0s1 (see /etc/network/interfaces) |
+| TFTP host | Host PC, files in /tmp/tftp/ |
 
 ## Build Commands
 
@@ -48,8 +48,11 @@ mkimage -A arm -O linux -T ramdisk -C gzip -a 0 -e 0 -n initramfs -d /tmp/initrd
 - RAID module load order: xor-neon → xor → raid6_pq → libcrc32c → async_tx → async_memcpy → async_xor → async_pq → async_raid6_recov → raid456
 - xor-neon.ko is at arch/arm/lib/xor-neon.ko (separate from lib/xor.ko)
 
-## Pending Work
-- Flash kernel+initrd to NAND for permanent boot
-- Set persistent MAC addresses
-- Fix CPU count in DTB (AL-212 = 2 cores, not 4)
-- Re-enable watchdog after diagnosing systemd boot hang
+## Completed
+- NAND boot working (uImage, DTB, uInitrd flashed)
+- MAC addresses persistent (U-Boot env)
+- CPU2/3 disabled in DTB (AL-212 = dual-core)
+- Watchdog disabled (RuntimeWatchdogSec=0)
+- Bonding removed (single interface, more stable)
+- Static IP configured in /etc/network/interfaces
+- nftables set to policy accept

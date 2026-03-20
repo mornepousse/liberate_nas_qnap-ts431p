@@ -67,8 +67,8 @@ bootcmd=nand read 0x5000000 0x0 0xC00000;nand read 0x4000000 0xC00000 0x20000;na
 ## TFTP Boot (for updates/recovery)
 
 ```
-setenv serverip 192.168.1.113
-setenv ipaddr 192.168.1.109
+setenv serverip <HOST_IP>
+setenv ipaddr <NAS_IP>
 tftpboot 0x5000000 uImage
 tftpboot 0x4000000 alpine-qnap-ts431p.dtb
 tftpboot 0x4500000 uInitrd
