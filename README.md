@@ -6,12 +6,17 @@ The stock QTS firmware (kernel 4.2.8) is end-of-life with known CVEs. This proje
 
 ## Status: Fully Operational
 
-- Debian Bookworm (armhf) booting from RAID 5
+- Debian Bookworm (armhf) booting from NAND
 - Kernel 6.12.77 LTS (custom cross-compiled)
 - 4x 3TB SATA drives in RAID 5 (~8.2 TB usable)
 - Samba file sharing (SMB2/3)
 - SMART disk monitoring
-- SSH access
+- nftables firewall
+- Hardware RTC (Epson RX8010)
+- CPU thermal monitoring (al_thermal)
+- NAND accessible from Linux (al_nand, mtd-utils)
+- SSH (key-only authentication)
+- NTP via chrony
 
 ## Hardware
 
@@ -19,7 +24,7 @@ The stock QTS firmware (kernel 4.2.8) is end-of-life with known CVEs. This proje
 |-----------|---------|
 | **SoC** | Annapurna Labs Alpine AL-212 (ARMv7-A Cortex-A15 dual-core @ 1.7 GHz) |
 | **RAM** | 1 GB DDR3 |
-| **Flash** | 2 MB SPI NOR (U-Boot) + 512 MB NAND (stock kernel/rootfs) |
+| **Flash** | 2 MB SPI NOR (U-Boot) + 512 MB NAND (kernel/initrd) |
 | **SATA** | 4x SATA III (6 Gb/s) via integrated PCIe AHCI |
 | **Network** | 2x Gigabit Ethernet (Qualcomm Atheros AR8035 PHY) |
 | **UART** | JST PHR-4 header, 115200 8N1, 3.3V TTL |
@@ -27,25 +32,39 @@ The stock QTS firmware (kernel 4.2.8) is end-of-life with known CVEs. This proje
 ## Boot Chain
 
 ```
-U-Boot (SPI NOR) → TFTP/NAND loads:
-  ├── uImage (kernel 6.12.77 zImage, no appended DTB)
-  ├── alpine-qnap-ts431p.dtb (separate, so U-Boot can patch initrd addresses)
-  └── uInitrd (custom initramfs)
-        ├── busybox
+U-Boot (SPI NOR) → NAND loads:
+  ├── uImage (kernel 6.12.77, ~12 MB)
+  ├── alpine-qnap-ts431p.dtb (separate FDT)
+  └── uInitrd (custom initramfs, ~1.9 MB)
+        ├── busybox (static)
         ├── mdadm + libs
         ├── al_eth.ko (network driver)
-        ├── RAID modules (xor-neon, xor, raid6_pq, async_*, raid456)
+        ├── al_thermal.ko (CPU temperature)
+        ├── al_nand.ko (NAND flash access)
         └── init script:
-              1. Load al_eth → network up
-              2. Load RAID modules
-              3. Wait for SATA (deferred probe, ~15s)
-              4. mdadm --assemble /dev/md0
-              5. mount + switch_root → Debian
+              1. Load modules (al_eth, al_thermal, al_nand)
+              2. Wait for SATA (deferred probe)
+              3. mdadm --assemble --run /dev/md0
+              4. mount + switch_root → Debian
 ```
+
+RAID modules (md/raid456, xor, raid6_pq, async_*) are built into the kernel — no module loading needed.
 
 **Important**: The DTB must be loaded as a separate file, not appended to zImage. U-Boot needs to patch the FDT with initrd start/end addresses. With an appended DTB, U-Boot patches the wrong memory and the initramfs is not found → kernel panic.
 
-## U-Boot Commands
+## NAND Boot (permanent)
+
+```
+bootcmd=nand read 0x5000000 0x0 0xC00000;nand read 0x4000000 0xC00000 0x20000;nand read 0x4500000 0xE00000 0x200000;bootm 0x5000000 0x4500000 0x4000000
+```
+
+| Offset | Size | Content |
+|--------|------|---------|
+| 0x000000 | 12 MB | uImage |
+| 0xC00000 | 128 KB | DTB |
+| 0xE00000 | 2 MB | uInitrd |
+
+## TFTP Boot (for updates/recovery)
 
 ```
 setenv serverip 192.168.1.113
@@ -54,6 +73,24 @@ tftpboot 0x5000000 uImage
 tftpboot 0x4000000 alpine-qnap-ts431p.dtb
 tftpboot 0x4500000 uInitrd
 bootm 0x5000000 0x4500000 0x4000000
+```
+
+## Updating from Linux (no U-Boot needed)
+
+With al_nand loaded, NAND is accessible via MTD devices:
+
+```bash
+# Update kernel
+flash_erase /dev/mtd0 0 0
+nandwrite -p /dev/mtd0 /tmp/uImage
+
+# Update DTB
+flash_erase /dev/mtd0 0xC00000 1
+nandwrite -p -s 0xC00000 /dev/mtd0 /tmp/alpine-qnap-ts431p.dtb
+
+# Update initramfs
+flash_erase /dev/mtd0 0xE00000 16
+nandwrite -p -s 0xE00000 /dev/mtd0 /tmp/uInitrd
 ```
 
 ## Building
@@ -70,38 +107,42 @@ This provides the ARM cross-compiler (`armv7l-unknown-linux-gnueabihf-gcc`), `mk
 ### Kernel
 
 ```bash
-# Start from multi_v7_defconfig + our fragment
 cd linux-6.12/
 make multi_v7_defconfig
 scripts/kconfig/merge_config.sh .config ../build/kernel-config.fragment
 make -j$(nproc) zImage dtbs modules
 
-# Create uImage (load/entry at 0x8000 for ARM zImage)
 mkimage -A arm -O linux -T kernel -C none -a 0x00008000 -e 0x00008000 \
   -d arch/arm/boot/zImage /tmp/tftp/uImage
 
-# Copy DTB
 cp arch/arm/boot/dts/amazon/alpine-qnap-ts431p.dtb /tmp/tftp/
 ```
 
-### al_eth Network Driver
-
-The Alpine Ethernet driver is **not in mainline**. Use [al_eth-standalone](https://github.com/delroth/al_eth-standalone):
+### Out-of-tree Drivers
 
 ```bash
+# al_eth (network) — https://github.com/delroth/al_eth-standalone
 cd al_eth-standalone/
 make KDIR=../linux-6.12/
 cp src/al_eth.ko ../initramfs/lib/modules/
+
+# al_thermal (CPU temperature) — https://github.com/delroth/al_thermal-standalone
+cd al_thermal-standalone/
+make -C ../linux-6.12 M=$(pwd)/src modules
+cp src/al_thermal.ko ../initramfs/lib/modules/
+
+# al_nand (NAND flash) — https://github.com/delroth/al_nand-standalone
+cd al_nand-standalone/
+make -C ../linux-6.12 M=$(pwd)/src modules
+cp src/al_nand.ko ../initramfs/lib/modules/
 ```
 
-**Note**: For kernel >= 6.3, a fix for MDIO C22 callbacks is required. See our [PR on al_eth-standalone](https://github.com/delroth/al_eth-standalone/pull/XXX).
+**Note**: For kernel >= 6.3, al_eth requires a fix for MDIO C22 callbacks. See our [fork](https://github.com/mornepousse/al_eth-standalone/tree/fix/mdio-c22-kernel-6.3).
 
 ### Initramfs
 
 ```bash
 cd initramfs/
-# Populate lib/modules/ with al_eth.ko + RAID modules from kernel build
-# Populate bin/ with busybox (static armhf) and mdadm + its libs
 find . | cpio -o -H newc | gzip > /tmp/initrd.gz
 mkimage -A arm -O linux -T ramdisk -C gzip -a 0x0 -e 0x0 \
   -n "initramfs" -d /tmp/initrd.gz /tmp/tftp/uInitrd
@@ -119,46 +160,25 @@ Since kernel 6.3, MDIO bus separates Clause 22 and Clause 45 into distinct callb
 
 Kernel 6.12's `alpine.dtsi` removed `interrupt-controller;` from the msix node. The `of_irq_init()` function requires this property to recognize the node as an interrupt controller. Without it: `failed to request irq → -EINVAL`.
 
-**Fix**: Add `interrupt-controller;` back to the msix node in `alpine.dtsi`:
-```dts
-msix: msix@fbe00000 {
-    compatible = "al,alpine-msix";
-    reg = <0x0 0xfbe00000 0x0 0x100000>;
-    interrupt-controller;  /* required — removed upstream in 6.12 */
-    msi-controller;
-    al,msi-base-spi = <96>;
-    al,msi-num-spis = <64>;
-};
-```
+**Fix**: Add `interrupt-controller;` back to the msix node in `alpine.dtsi`.
 
 ### 3. DTB Must Be Loaded Separately
 
-With an appended DTB, U-Boot cannot find the FDT to patch initrd addresses. The `bootm` command's 3-argument form (`bootm <kernel> <initrd> <fdt>`) is required:
-- `0x5000000` — uImage
-- `0x4500000` — uInitrd
-- `0x4000000` — DTB
+With an appended DTB, U-Boot cannot find the FDT to patch initrd addresses. The `bootm` command's 3-argument form (`bootm <kernel> <initrd> <fdt>`) is required.
 
 ### 4. PCI Deferred Probe (kernel >= 6.12)
 
-SATA drives appear ~15s after boot (vs ~3s in 6.1). The initramfs init must poll for block devices instead of using a fixed sleep.
+SATA drives appear ~5s after boot (vs ~3s in 6.1). The initramfs init must poll for block devices instead of using a fixed sleep.
 
-### 5. RAID Module Dependencies
+### 5. al_nand — API Changes (kernel >= 6.12)
 
-`raid456.ko` depends on 9 modules that must be loaded in exact order:
-```
-xor-neon → xor → raid6_pq → libcrc32c → async_tx → async_memcpy → async_xor → async_pq → async_raid6_recov → raid456
-```
-Note: `xor-neon.ko` is built separately at `arch/arm/lib/xor-neon.ko` (easy to miss).
+Two fixes needed for kernel 6.12:
+- `struct onfi_params`: `async_timing_mode` renamed to `sdr_timing_modes`
+- `platform_driver.remove`: return type changed from `int` to `void`
 
 ### 6. SerDes Node Required for al_eth
 
-The al_eth driver needs a SerDes device tree node. Board parameters (PHY address, RGMII mode) come from MAC scratch registers written by U-Boot, not from the DTB. Only the SerDes base address is needed from DT:
-```dts
-serdes@fd8c0000 {
-    compatible = "annapurna-labs,al-serdes";
-    reg = <0x0 0xfd8c0000 0x0 0x1000>;
-};
-```
+The al_eth driver needs a SerDes device tree node. Board parameters (PHY address, RGMII mode) come from MAC scratch registers written by U-Boot, not from the DTB.
 
 ### 7. PCIe Host Controller
 
@@ -169,19 +189,17 @@ Stock QNAP uses `alpine-internal-pcie` which is incompatible with modern kernels
 ### SPI NOR (2 MB)
 | Partition | Content | Size |
 |-----------|---------|------|
-| mtd0 | U-Boot loader | 1088 KB (read-only) |
-| mtd1 | U-Boot env | 384 KB |
+| loader | U-Boot | 1088 KB (read-only) |
+| env | U-Boot environment | 384 KB |
 
 ### NAND (512 MB)
 | Partition | Content | Size |
 |-----------|---------|------|
-| mtd2 | boot1_kernel | 32 MB |
-| mtd3 | boot1_rootfs2 | 216 MB |
-| mtd4 | boot2_kernel (backup) | 32 MB |
-| mtd5 | boot2_rootfs2 (backup) | 216 MB |
-| mtd6 | config (UBI) | 15 MB |
-
-Dual A/B boot slots. 32 MB kernel partition is plenty for our ~12 MB uImage.
+| boot1_kernel | uImage + DTB + uInitrd | 32 MB |
+| boot1_rootfs2 | (unused) | 216 MB |
+| boot2_kernel | (stock backup) | 32 MB |
+| boot2_rootfs2 | (stock backup) | 216 MB |
+| config | (stock config) | 15 MB |
 
 ## UART Pinout
 
@@ -197,22 +215,22 @@ Connector: JST PHR-4. Use `picocom -b 115200 /dev/ttyUSB0`.
 ## File Structure
 
 ```
-├── README.md                          # This file
+├── README.md
 ├── CLAUDE.md                          # AI assistant guidance
 ├── dts/
 │   ├── alpine-qnap-ts431p.dts        # Custom DTB source
 │   └── qnap-stock.dts                # Stock QNAP DTB (decompiled, reference)
 ├── initramfs/
-│   └── init                           # Initramfs init script (RAID assembly + switch_root)
+│   └── init                           # Initramfs init script
 ├── build/
 │   ├── shell.nix                      # NixOS cross-compilation environment
-│   └── kernel-config.fragment         # Kernel config additions over multi_v7_defconfig
+│   └── kernel-config.fragment         # Kernel config additions
 ├── research/
-│   ├── recon1.log                     # Hardware reconnaissance (cpuinfo, mtd, dmesg)
+│   ├── recon1.log                     # Hardware reconnaissance
 │   ├── recon2.log
 │   └── recon3.log
 ├── tftp/
-│   └── tftp_server.py                 # Minimal TFTP server for boot testing
+│   └── tftp_server.py                 # Minimal TFTP server
 └── uboot/
     └── nand_backup/                   # NAND partition dumps (.gitignored)
 ```
@@ -220,15 +238,20 @@ Connector: JST PHR-4. Use `picocom -b 115200 /dev/ttyUSB0`.
 ## Related Projects
 
 - [al_eth-standalone](https://github.com/delroth/al_eth-standalone) — Out-of-tree Alpine Ethernet driver
-- [revive_nas_dns-345](https://github.com/mornepousse/revive_nas_dns-345) — Similar project for D-Link DNS-345 (completed)
+- [al_thermal-standalone](https://github.com/delroth/al_thermal-standalone) — Out-of-tree Alpine thermal sensor driver
+- [al_nand-standalone](https://github.com/delroth/al_nand-standalone) — Out-of-tree Alpine NAND flash driver
 - [delroth/linux-qnap-tsx32x](https://github.com/delroth/linux-qnap-tsx32x) — Kernel patches for Alpine v2 (ARMv8) QNAP NAS
 
 ## Known Issues
 
-- **CPU count**: DTB inherits 4 CPUs from `alpine.dtsi` but AL-212 is dual-core → CPU2/3 fail to come online (harmless but noisy)
-- **MAC addresses**: Random at each boot (not persistent yet)
+- **CPU count**: DTB inherits 4 CPUs from `alpine.dtsi` but AL-212 is dual-core → CPU2/3 fail to come online (cosmetic, 2s boot delay)
 - **Watchdog**: Disabled (`RuntimeWatchdogSec=0`) because systemd hangs during boot with it enabled
 - **IRQ**: `of_irq_parse_pci: failed with rc=-22` on network interfaces (non-blocking, network works fine)
+- **NAND ECC**: Warning about ECC strength (4b/2048B vs 4b/512B) — reads/writes work fine
+
+## Credits
+
+Built with help from [Claude Code](https://claude.ai/claude-code) (Anthropic).
 
 ## License
 

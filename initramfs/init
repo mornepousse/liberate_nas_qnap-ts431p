@@ -11,19 +11,10 @@ $BB echo "=== Debian Initramfs (kernel 6.12 - RAID5) ==="
 # Load al_eth network module
 $BB echo "Loading al_eth module..."
 $BB insmod /lib/modules/al_eth.ko
+$BB insmod /lib/modules/al_thermal.ko
+$BB insmod /lib/modules/al_nand.ko
 
-# Load RAID modules
-$BB echo "Loading RAID modules..."
-$BB insmod /lib/modules/xor-neon.ko
-$BB insmod /lib/modules/xor.ko
-$BB insmod /lib/modules/raid6_pq.ko
-$BB insmod /lib/modules/libcrc32c.ko
-$BB insmod /lib/modules/async_tx.ko
-$BB insmod /lib/modules/async_memcpy.ko
-$BB insmod /lib/modules/async_xor.ko
-$BB insmod /lib/modules/async_pq.ko
-$BB insmod /lib/modules/async_raid6_recov.ko
-$BB insmod /lib/modules/raid456.ko
+# RAID modules are built-in, no insmod needed
 
 # Wait for SATA disks to appear (PCI deferred probe)
 $BB echo "Waiting for SATA disks..."
@@ -58,7 +49,7 @@ if [ $? -ne 0 ]; then
     exec $BB sh
 fi
 
-# Copy all modules to rootfs for later use
+# Copy al_eth module to rootfs for later use
 $BB mkdir -p /mnt/lib/modules/6.12.77
 $BB cp /lib/modules/*.ko /mnt/lib/modules/6.12.77/
 

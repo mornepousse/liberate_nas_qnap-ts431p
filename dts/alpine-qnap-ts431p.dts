@@ -41,7 +41,7 @@
 
 		/* PBS registers */
 		pbs@fd8a8000 {
-			compatible = "annapurna-labs,al-pbs";
+			compatible = "al,alpine-pbs", "annapurna-labs,al-pbs";
 			reg = <0x0 0xfd8a8000 0x0 0x1000>;
 		};
 
@@ -81,9 +81,45 @@
 
 		/* Thermal sensor */
 		thermal: thermal@fd860a00 {
-			compatible = "annapurna-labs,al-thermal";
+			compatible = "al,alpine-thermal", "annapurna-labs,al-thermal";
 			reg = <0x0 0xfd860a00 0x0 0x100>;
 			#thermal-sensor-cells = <0>;
+		};
+
+		/* NAND flash controller */
+		nand-flash@fa100000 {
+			compatible = "al,alpine-nand", "annapurna-labs,al-nand";
+			reg = <0x0 0xfa100000 0x0 0x202000>;
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sbclk>;
+			clock-names = "sbclk";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "boot1_kernel";
+				reg = <0x0 0x2000000>;
+			};
+
+			partition@2000000 {
+				label = "boot1_rootfs2";
+				reg = <0x2000000 0xd800000>;
+			};
+
+			partition@f800000 {
+				label = "boot2_kernel";
+				reg = <0xf800000 0x2000000>;
+			};
+
+			partition@11800000 {
+				label = "boot2_rootfs2";
+				reg = <0x11800000 0xd800000>;
+			};
+
+			partition@1f000000 {
+				label = "config";
+				reg = <0x1f000000 0xf00000>;
+			};
 		};
 
 		/* GPIO controllers */
